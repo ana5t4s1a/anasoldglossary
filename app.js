@@ -136,45 +136,110 @@ const SoundFX = {
     }
 };
 
-// Pick the best available English voice (Chrome loads voices asynchronously).
-// Local (installed) voices come first: online voices such as "Google US English" or
-// Edge "Natural" voices ignore the volume setting, so they always sound at full volume.
+// =========================================================
+// NARRATOR (TEXT-TO-SPEECH): OWN VOLUME + VOICE PICKER
+// Browsers only let a page lower the volume of LOCAL (installed) voices.
+// Online voices ("Google US English", Edge "... Online (Natural)") always play at
+// full volume, so local voices are preferred and online ones are labelled.
+// =========================================================
+const NARRATOR_KEY = 'tech_english_narrator_v1';
+const VOICE_KEY = 'tech_english_voice_v1';
+
+let narratorVolume = Number(storageGet(NARRATOR_KEY, 0.4));
+if (!Number.isFinite(narratorVolume)) narratorVolume = 0.4;
+let savedVoiceURI = storageGet(VOICE_KEY, '');
 let preferredVoice = null;
-function pickVoice() {
-    if (!('speechSynthesis' in window)) return;
-    const voices = window.speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang));
-    const rank = (v) =>
-        (v.localService ? 10 : 0) +
+let englishVoices = [];
+
+const narratorSlider = $('narratorSlider');
+const narratorPercentLabel = $('narratorPercentLabel');
+const narratorTestBtn = $('narratorTestBtn');
+const voiceSelect = $('voiceSelect');
+
+// Loudness is perceived logarithmically: squaring makes the low end of the slider really quiet
+// (40% -> 16% of full volume). The general volume slider scales it too.
+function getNarratorVolume() {
+    return getEffectiveVolume() * narratorVolume * narratorVolume;
+}
+
+function voiceRank(v) {
+    return (v.localService ? 10 : 0) +
         (/en[-_]US/i.test(v.lang) ? 2 : 0) +
-        (/zira|david|mark|samantha|alex|aria|jenny/i.test(v.name) ? 1 : 0);
-    preferredVoice = voices.sort((a, b) => rank(b) - rank(a))[0] || null;
+        (/zira|david|mark|samantha|alex/i.test(v.name) ? 1 : 0);
 }
+
+function populateVoices() {
+    if (!('speechSynthesis' in window)) {
+        voiceSelect.classList.add('hidden');
+        return;
+    }
+    englishVoices = window.speechSynthesis.getVoices()
+        .filter(v => /^en[-_]/i.test(v.lang))
+        .sort((a, b) => voiceRank(b) - voiceRank(a));
+    if (!englishVoices.length) return;
+
+    preferredVoice = englishVoices.find(v => v.voiceURI === savedVoiceURI) || englishVoices[0];
+    voiceSelect.replaceChildren(...englishVoices.map(v => {
+        const opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        const shortName = v.name.replace(/^Microsoft\s+/i, '').replace(/\s*-\s*English.*$/i, '');
+        opt.textContent = v.localService ? `🗣️ ${shortName}` : `🌐 ${shortName} (volumen fijo)`;
+        opt.selected = v === preferredVoice;
+        return opt;
+    }));
+}
+
 if ('speechSynthesis' in window) {
-    pickVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+    populateVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
 }
+
+function syncNarratorUI() {
+    const pct = Math.round(narratorVolume * 100);
+    narratorSlider.value = pct;
+    narratorPercentLabel.textContent = `${pct}%`;
+    narratorTestBtn.textContent = pct === 0 ? '🤐' : '🗣️';
+}
+
+function testNarrator() {
+    if (preferredVoice && !preferredVoice.localService) {
+        showToast('🌐 Esta voz es online: el navegador no permite bajarle el volumen. Elegí una voz con 🗣️.', 5000);
+    }
+    speakText('This is the narrator volume.');
+}
+
+narratorSlider.addEventListener('input', (e) => {
+    narratorVolume = parseInt(e.target.value, 10) / 100;
+    storageSet(NARRATOR_KEY, narratorVolume);
+    syncNarratorUI();
+});
+narratorSlider.addEventListener('change', testNarrator); // preview when the slider is released
+narratorTestBtn.addEventListener('click', testNarrator);
+
+voiceSelect.addEventListener('change', () => {
+    preferredVoice = englishVoices.find(v => v.voiceURI === voiceSelect.value) || preferredVoice;
+    savedVoiceURI = preferredVoice ? preferredVoice.voiceURI : '';
+    storageSet(VOICE_KEY, savedVoiceURI);
+    testNarrator();
+});
 
 // "may/can (modal)" -> "may"
 function primaryTerm(str) {
     return String(str).split('/')[0].replace(/\(.*?\)/g, '').trim();
 }
 
-// The reader voice plays quieter than the master volume (sound effects are unaffected).
-// 0.6 = 40% below the slider level. Lower it for a softer voice (e.g. 0.5).
-const VOICE_VOLUME_FACTOR = 0.6;
-
 // onEnd (optional) runs when the voice finishes, fails, or isn't played at all
 function speakText(text, rate = 0.95, onEnd = null) {
     const done = () => { if (onEnd) onEnd(); };
     if (!('speechSynthesis' in window)) return done();
-    const vol = getEffectiveVolume();
+    const vol = getNarratorVolume();
     if (vol <= 0.001 || !text) return done();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
     if (preferredVoice) utterance.voice = preferredVoice;
     utterance.rate = rate;
-    utterance.volume = vol * VOICE_VOLUME_FACTOR;
+    utterance.volume = vol;
     utterance.onend = done;
     utterance.onerror = done;
     window.speechSynthesis.speak(utterance);
@@ -2549,6 +2614,7 @@ document.addEventListener('keydown', (e) => {
 // INITIAL BOOT
 // =========================================================
 syncVolumeUI();
+syncNarratorUI();
 renderCarousel();
 renderStats();
 renderSpotlight('word');
