@@ -136,14 +136,17 @@ const SoundFX = {
     }
 };
 
-// Pick the best available English voice (Chrome loads voices asynchronously)
+// Pick the best available English voice (Chrome loads voices asynchronously).
+// Local (installed) voices come first: online voices such as "Google US English" or
+// Edge "Natural" voices ignore the volume setting, so they always sound at full volume.
 let preferredVoice = null;
 function pickVoice() {
     if (!('speechSynthesis' in window)) return;
     const voices = window.speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang));
     const rank = (v) =>
+        (v.localService ? 10 : 0) +
         (/en[-_]US/i.test(v.lang) ? 2 : 0) +
-        (/natural|neural|google|samantha|aria|jenny|guy/i.test(v.name) ? 3 : 0);
+        (/zira|david|mark|samantha|alex|aria|jenny/i.test(v.name) ? 1 : 0);
     preferredVoice = voices.sort((a, b) => rank(b) - rank(a))[0] || null;
 }
 if ('speechSynthesis' in window) {
@@ -156,19 +159,24 @@ function primaryTerm(str) {
     return String(str).split('/')[0].replace(/\(.*?\)/g, '').trim();
 }
 
-// The reader voice plays 10% quieter than the master volume (sound effects are unaffected)
-const VOICE_VOLUME_FACTOR = 0.9;
+// The reader voice plays quieter than the master volume (sound effects are unaffected).
+// 0.6 = 40% below the slider level. Lower it for a softer voice (e.g. 0.5).
+const VOICE_VOLUME_FACTOR = 0.6;
 
-function speakText(text, rate = 0.95) {
-    if (!('speechSynthesis' in window)) return;
+// onEnd (optional) runs when the voice finishes, fails, or isn't played at all
+function speakText(text, rate = 0.95, onEnd = null) {
+    const done = () => { if (onEnd) onEnd(); };
+    if (!('speechSynthesis' in window)) return done();
     const vol = getEffectiveVolume();
-    if (vol <= 0.001 || !text) return;
+    if (vol <= 0.001 || !text) return done();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
     if (preferredVoice) utterance.voice = preferredVoice;
     utterance.rate = rate;
     utterance.volume = vol * VOICE_VOLUME_FACTOR;
+    utterance.onend = done;
+    utterance.onerror = done;
     window.speechSynthesis.speak(utterance);
 }
 
@@ -631,17 +639,43 @@ function renderSpotlight(forceType = null) {
         spotlightBadge.className = 'spotlight-tag tag-code';
         spotlightMainText.textContent = fact.title;
         spotlightSubText.textContent = fact.detail;
-        spotlightSpeakBtn.classList.add('hidden');
+        spotlightSpeakBtn.classList.remove('hidden');
         spotlightMicBtn.classList.add('hidden');
     }
     updateSpotlightStarBtn();
 }
 
+// Time each word / fact stays on screen (was 8.5 s, +4 s)
+const SPOTLIGHT_INTERVAL_MS = 12500;
+let spotlightReading = false;
+
 function resetSpotlightTimer() {
     clearInterval(spotlightTimer);
     spotlightTimer = setInterval(() => {
-        if (!welcomeScreen.classList.contains('hidden')) renderSpotlight();
-    }, 8500);
+        // Never change the card while it is being read aloud
+        const stillSpeaking = spotlightReading || ('speechSynthesis' in window && window.speechSynthesis.speaking);
+        if (!welcomeScreen.classList.contains('hidden') && !stillSpeaking) renderSpotlight();
+    }, SPOTLIGHT_INTERVAL_MS);
+}
+
+// Reads the current word or fun fact; the card stays until the reading ends,
+// then it gets a full interval again before rotating
+function readSpotlight() {
+    if (!currentSpotlightItem) return;
+    const text = currentSpotlightItem.type === 'word'
+        ? primaryTerm(currentSpotlightItem.en)
+        : `${currentSpotlightItem.title}. ${currentSpotlightItem.detail}`;
+    spotlightReading = true;
+    clearInterval(spotlightTimer);
+    speakText(text, 0.95, () => {
+        spotlightReading = false;
+        resetSpotlightTimer();
+    });
+}
+
+function stopSpotlightReading() {
+    if (spotlightReading && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    spotlightReading = false;
 }
 
 // Don't rotate the spotlight while the tab is in the background
@@ -650,9 +684,7 @@ document.addEventListener('visibilitychange', () => {
     else resetSpotlightTimer();
 });
 
-spotlightSpeakBtn.addEventListener('click', () => {
-    if (currentSpotlightItem?.type === 'word') speakEnglish(currentSpotlightItem.en);
-});
+spotlightSpeakBtn.addEventListener('click', readSpotlight);
 
 spotlightMicBtn.addEventListener('click', () => {
     if (currentSpotlightItem?.type === 'word') {
@@ -667,11 +699,13 @@ spotlightStarBtn.addEventListener('click', () => {
 });
 
 spotlightNextBtn.addEventListener('click', () => {
+    stopSpotlightReading();
     renderSpotlight();
     resetSpotlightTimer();
 });
 
 heroMascotBtn.addEventListener('click', () => {
+    stopSpotlightReading();
     SoundFX.meow();
     renderSpotlight();
     resetSpotlightTimer();
