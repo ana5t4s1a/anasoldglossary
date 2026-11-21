@@ -136,39 +136,112 @@ const SoundFX = {
     }
 };
 
-// Pick the best available English voice (Chrome loads voices asynchronously)
+// =========================================================
+// NARRATOR (TEXT-TO-SPEECH): OWN VOLUME + VOICE PICKER
+// Browsers only let a page lower the volume of LOCAL (installed) voices.
+// Online voices ("Google US English", Edge "... Online (Natural)") always play at
+// full volume, so local voices are preferred and online ones are labelled.
+// =========================================================
+const NARRATOR_KEY = 'tech_english_narrator_v1';
+const VOICE_KEY = 'tech_english_voice_v1';
+
+let narratorVolume = Number(storageGet(NARRATOR_KEY, 0.4));
+if (!Number.isFinite(narratorVolume)) narratorVolume = 0.4;
+let savedVoiceURI = storageGet(VOICE_KEY, '');
 let preferredVoice = null;
-function pickVoice() {
-    if (!('speechSynthesis' in window)) return;
-    const voices = window.speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang));
-    const rank = (v) =>
+let englishVoices = [];
+
+const narratorSlider = $('narratorSlider');
+const narratorPercentLabel = $('narratorPercentLabel');
+const narratorTestBtn = $('narratorTestBtn');
+const voiceSelect = $('voiceSelect');
+
+// Loudness is perceived logarithmically: squaring makes the low end of the slider really quiet
+// (40% -> 16% of full volume). The general volume slider scales it too.
+function getNarratorVolume() {
+    return getEffectiveVolume() * narratorVolume * narratorVolume;
+}
+
+function voiceRank(v) {
+    return (v.localService ? 10 : 0) +
         (/en[-_]US/i.test(v.lang) ? 2 : 0) +
-        (/natural|neural|google|samantha|aria|jenny|guy/i.test(v.name) ? 3 : 0);
-    preferredVoice = voices.sort((a, b) => rank(b) - rank(a))[0] || null;
+        (/zira|david|mark|samantha|alex/i.test(v.name) ? 1 : 0);
 }
+
+function populateVoices() {
+    if (!('speechSynthesis' in window)) {
+        voiceSelect.classList.add('hidden');
+        return;
+    }
+    englishVoices = window.speechSynthesis.getVoices()
+        .filter(v => /^en[-_]/i.test(v.lang))
+        .sort((a, b) => voiceRank(b) - voiceRank(a));
+    if (!englishVoices.length) return;
+
+    preferredVoice = englishVoices.find(v => v.voiceURI === savedVoiceURI) || englishVoices[0];
+    voiceSelect.replaceChildren(...englishVoices.map(v => {
+        const opt = document.createElement('option');
+        opt.value = v.voiceURI;
+        const shortName = v.name.replace(/^Microsoft\s+/i, '').replace(/\s*-\s*English.*$/i, '');
+        opt.textContent = v.localService ? `🗣️ ${shortName}` : `🌐 ${shortName} (volumen fijo)`;
+        opt.selected = v === preferredVoice;
+        return opt;
+    }));
+}
+
 if ('speechSynthesis' in window) {
-    pickVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickVoice);
+    populateVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', populateVoices);
 }
+
+function syncNarratorUI() {
+    const pct = Math.round(narratorVolume * 100);
+    narratorSlider.value = pct;
+    narratorPercentLabel.textContent = `${pct}%`;
+    narratorTestBtn.textContent = pct === 0 ? '🤐' : '🗣️';
+}
+
+function testNarrator() {
+    if (preferredVoice && !preferredVoice.localService) {
+        showToast('🌐 Esta voz es online: el navegador no permite bajarle el volumen. Elegí una voz con 🗣️.', 5000);
+    }
+    speakText('This is the narrator volume.');
+}
+
+narratorSlider.addEventListener('input', (e) => {
+    narratorVolume = parseInt(e.target.value, 10) / 100;
+    storageSet(NARRATOR_KEY, narratorVolume);
+    syncNarratorUI();
+});
+narratorSlider.addEventListener('change', testNarrator); // preview when the slider is released
+narratorTestBtn.addEventListener('click', testNarrator);
+
+voiceSelect.addEventListener('change', () => {
+    preferredVoice = englishVoices.find(v => v.voiceURI === voiceSelect.value) || preferredVoice;
+    savedVoiceURI = preferredVoice ? preferredVoice.voiceURI : '';
+    storageSet(VOICE_KEY, savedVoiceURI);
+    testNarrator();
+});
 
 // "may/can (modal)" -> "may"
 function primaryTerm(str) {
     return String(str).split('/')[0].replace(/\(.*?\)/g, '').trim();
 }
 
-// The reader voice plays 10% quieter than the master volume (sound effects are unaffected)
-const VOICE_VOLUME_FACTOR = 0.9;
-
-function speakText(text, rate = 0.95) {
-    if (!('speechSynthesis' in window)) return;
-    const vol = getEffectiveVolume();
-    if (vol <= 0.001 || !text) return;
+// onEnd (optional) runs when the voice finishes, fails, or isn't played at all
+function speakText(text, rate = 0.95, onEnd = null) {
+    const done = () => { if (onEnd) onEnd(); };
+    if (!('speechSynthesis' in window)) return done();
+    const vol = getNarratorVolume();
+    if (vol <= 0.001 || !text) return done();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
     if (preferredVoice) utterance.voice = preferredVoice;
     utterance.rate = rate;
-    utterance.volume = vol * VOICE_VOLUME_FACTOR;
+    utterance.volume = vol;
+    utterance.onend = done;
+    utterance.onerror = done;
     window.speechSynthesis.speak(utterance);
 }
 
@@ -631,17 +704,43 @@ function renderSpotlight(forceType = null) {
         spotlightBadge.className = 'spotlight-tag tag-code';
         spotlightMainText.textContent = fact.title;
         spotlightSubText.textContent = fact.detail;
-        spotlightSpeakBtn.classList.add('hidden');
+        spotlightSpeakBtn.classList.remove('hidden');
         spotlightMicBtn.classList.add('hidden');
     }
     updateSpotlightStarBtn();
 }
 
+// Time each word / fact stays on screen (was 8.5 s, +4 s)
+const SPOTLIGHT_INTERVAL_MS = 12500;
+let spotlightReading = false;
+
 function resetSpotlightTimer() {
     clearInterval(spotlightTimer);
     spotlightTimer = setInterval(() => {
-        if (!welcomeScreen.classList.contains('hidden')) renderSpotlight();
-    }, 8500);
+        // Never change the card while it is being read aloud
+        const stillSpeaking = spotlightReading || ('speechSynthesis' in window && window.speechSynthesis.speaking);
+        if (!welcomeScreen.classList.contains('hidden') && !stillSpeaking) renderSpotlight();
+    }, SPOTLIGHT_INTERVAL_MS);
+}
+
+// Reads the current word or fun fact; the card stays until the reading ends,
+// then it gets a full interval again before rotating
+function readSpotlight() {
+    if (!currentSpotlightItem) return;
+    const text = currentSpotlightItem.type === 'word'
+        ? primaryTerm(currentSpotlightItem.en)
+        : `${currentSpotlightItem.title}. ${currentSpotlightItem.detail}`;
+    spotlightReading = true;
+    clearInterval(spotlightTimer);
+    speakText(text, 0.95, () => {
+        spotlightReading = false;
+        resetSpotlightTimer();
+    });
+}
+
+function stopSpotlightReading() {
+    if (spotlightReading && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    spotlightReading = false;
 }
 
 // Don't rotate the spotlight while the tab is in the background
@@ -650,9 +749,7 @@ document.addEventListener('visibilitychange', () => {
     else resetSpotlightTimer();
 });
 
-spotlightSpeakBtn.addEventListener('click', () => {
-    if (currentSpotlightItem?.type === 'word') speakEnglish(currentSpotlightItem.en);
-});
+spotlightSpeakBtn.addEventListener('click', readSpotlight);
 
 spotlightMicBtn.addEventListener('click', () => {
     if (currentSpotlightItem?.type === 'word') {
@@ -667,11 +764,13 @@ spotlightStarBtn.addEventListener('click', () => {
 });
 
 spotlightNextBtn.addEventListener('click', () => {
+    stopSpotlightReading();
     renderSpotlight();
     resetSpotlightTimer();
 });
 
 heroMascotBtn.addEventListener('click', () => {
+    stopSpotlightReading();
     SoundFX.meow();
     renderSpotlight();
     resetSpotlightTimer();
@@ -2515,6 +2614,7 @@ document.addEventListener('keydown', (e) => {
 // INITIAL BOOT
 // =========================================================
 syncVolumeUI();
+syncNarratorUI();
 renderCarousel();
 renderStats();
 renderSpotlight('word');

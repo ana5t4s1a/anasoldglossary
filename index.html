@@ -50,13 +50,25 @@
 
                 <!-- Volume Leveler & Glossary Button -->
                 <div class="flex flex-wrap items-center gap-2.5">
-                    <div class="volume-pill" title="Master Audio & Voice Volume">
+                    <div class="volume-pill" title="Volumen general (sonidos y narrador)">
                         <button type="button" id="muteToggleBtn" class="text-base leading-none cursor-pointer" aria-label="Silenciar / activar sonido">
                             🔊
                         </button>
-                        <input type="range" id="volumeSlider" min="0" max="100" value="85" step="5" aria-label="Volume Level">
+                        <input type="range" id="volumeSlider" min="0" max="100" value="85" step="5" aria-label="Volumen general">
                         <span id="volumePercentLabel" class="text-xs font-code font-bold text-cocoa w-8 text-right">85%</span>
                     </div>
+
+                    <!-- Narrator (text-to-speech) volume + voice -->
+                    <div class="volume-pill" title="Volumen del narrador (clic en 🗣️ para probar)">
+                        <button type="button" id="narratorTestBtn" class="text-base leading-none cursor-pointer" aria-label="Probar la voz del narrador">
+                            🗣️
+                        </button>
+                        <input type="range" id="narratorSlider" min="0" max="100" value="40" step="5" aria-label="Volumen del narrador">
+                        <span id="narratorPercentLabel" class="text-xs font-code font-bold text-cocoa w-8 text-right">40%</span>
+                    </div>
+                    <select id="voiceSelect" class="cozy-select text-xs py-1.5 px-2 max-w-[12rem]" aria-label="Voz del narrador" title="Voz del narrador">
+                        <option value="">Voice: automatic</option>
+                    </select>
 
                     <button type="button" id="themeToggleBtn" class="btn-cozy-secondary w-10 h-10 text-base flex items-center justify-center" aria-label="Cambiar a modo oscuro" title="Modo claro / oscuro">
                         🌙
