@@ -4,8 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>English Vocabulary Challenge — Technical English II</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="description" content="Technical English I & II vocabulary games: typing, matching, multiple choice, dictation, hangman and sentence practice.">
+    <meta name="theme-color" content="#f9d5e0">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+
+    <!-- Apply saved theme before first paint (avoids a light flash in dark mode) -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('tech_english_theme_v1');
+                var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (dark) document.documentElement.classList.add('dark');
+            } catch (e) { /* storage unavailable */ }
+        })();
+    </script>
+
+    <!-- Fonts: preconnect + link (instead of @import inside the CSS, which blocks rendering) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@500;700&family=Nunito:wght@500;600;700;800&display=swap">
+
+    <!-- Precompiled Tailwind (npm run build:css) + custom theme -->
+    <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="style.css">
+
+    <script src="glossary.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
 
@@ -18,7 +43,7 @@
                     <h1 class="app-main-title text-2xl sm:text-3xl">
                         <span>English</span> Vocabulary Challenge
                     </h1>
-                    <p class="text-xs sm:text-sm font-bold text-[#85746d] mt-0.5">
+                    <p class="text-xs sm:text-sm font-bold text-cocoa-soft mt-0.5">
                         Project by Anastasia Oldoni &bull; Technical English II (Systems Analyst)
                     </p>
                 </div>
@@ -26,15 +51,19 @@
                 <!-- Volume Leveler & Glossary Button -->
                 <div class="flex flex-wrap items-center gap-2.5">
                     <div class="volume-pill" title="Master Audio & Voice Volume">
-                        <button type="button" id="muteToggleBtn" class="text-base leading-none cursor-pointer" aria-label="Toggle Mute">
+                        <button type="button" id="muteToggleBtn" class="text-base leading-none cursor-pointer" aria-label="Silenciar / activar sonido">
                             🔊
                         </button>
                         <input type="range" id="volumeSlider" min="0" max="100" value="85" step="5" aria-label="Volume Level">
-                        <span id="volumePercentLabel" class="text-xs font-code font-bold text-[#5c4d47] w-8 text-right">85%</span>
+                        <span id="volumePercentLabel" class="text-xs font-code font-bold text-cocoa w-8 text-right">85%</span>
                     </div>
 
+                    <button type="button" id="themeToggleBtn" class="btn-cozy-secondary w-10 h-10 text-base flex items-center justify-center" aria-label="Cambiar a modo oscuro" title="Modo claro / oscuro">
+                        🌙
+                    </button>
+
                     <button type="button" id="showGlossaryBtn" class="btn-cozy-pink py-2 px-4 text-sm flex items-center gap-1.5">
-                        <span>📚</span>
+                        <span aria-hidden="true">📚</span>
                         <span>Glossary (<span id="totalWordsBadge">219</span>)</span>
                     </button>
                 </div>
@@ -119,7 +148,7 @@
                                 <circle cx="103" cy="105" r="2" fill="#5c4d47"/>
                             </svg>
                         </button>
-                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-[#85746d]">Pusheen Study Buddy</span>
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-cocoa-soft">Pusheen Study Buddy</span>
                     </div>
 
                     <!-- Dynamic Speech Bubble (Vocabulary Spotlight + Code Facts) -->
@@ -131,7 +160,10 @@
                                     <button type="button" id="spotlightSpeakBtn" class="btn-audio-pill text-xs py-0.5 px-2.5" title="Pronounce English term">
                                         🔊 Listen
                                     </button>
-                                    <button type="button" id="spotlightStarBtn" class="btn-cozy-secondary text-xs py-0.5 px-2" title="Save to Favorites">
+                                    <button type="button" id="spotlightMicBtn" class="mic-btn btn-audio-pill text-xs py-0.5 px-2.5 hidden" title="Practice: say the word out loud" aria-label="Practicar pronunciación">
+                                        🎤 Say it
+                                    </button>
+                                    <button type="button" id="spotlightStarBtn" class="btn-cozy-secondary text-xs py-0.5 px-2" title="Save to Favorites" aria-label="Agregar a favoritos" aria-pressed="false">
                                         ☆
                                     </button>
                                     <button type="button" id="spotlightNextBtn" class="btn-cozy-secondary text-xs py-0.5 px-2.5" title="Next Word or Code Fact">
@@ -140,10 +172,10 @@
                                 </div>
                             </div>
 
-                            <p id="spotlightMainText" class="text-base sm:text-lg font-extrabold text-[#433631] leading-snug">
+                            <p id="spotlightMainText" class="text-base sm:text-lg font-extrabold text-cocoa-dark leading-snug">
                                 Loading vocabulary...
                             </p>
-                            <p id="spotlightSubText" class="text-xs sm:text-sm font-semibold text-[#85746d] mt-1">
+                            <p id="spotlightSubText" lang="es" class="text-xs sm:text-sm font-semibold text-cocoa-soft mt-1">
                                 ...
                             </p>
                         </div>
@@ -155,8 +187,8 @@
             <section class="cozy-card p-5 sm:p-7 relative">
                 <!-- Carousel Header & Dots -->
                 <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs font-extrabold uppercase tracking-wider text-[#85746d]">
-                        Select Challenge (<span id="carouselIndexLabel">1</span> / 5)
+                    <span class="text-xs font-extrabold uppercase tracking-wider text-cocoa-soft">
+                        Select Challenge (<span id="carouselIndexLabel">1</span> / <span id="carouselTotalLabel">6</span>)
                     </span>
                     <div id="carouselDots" class="flex items-center gap-2"></div>
                 </div>
@@ -168,33 +200,60 @@
                     </button>
 
                     <div id="carouselCardStage" class="flex-1 cozy-subcard p-5 sm:p-6 text-center carousel-stage-anim">
-                        <!-- Custom Pusheen-Style Game SVG Icon -->
-                        <div id="carouselGameIcon" class="w-16 h-16 mx-auto mb-3 flex items-center justify-center rounded-2xl bg-white border-2 border-[#5c4d47] shadow-[0_3px_0_#dfd0c5]">
+                        <!-- Game SVG Icon -->
+                        <div id="carouselGameIcon" aria-hidden="true" class="w-16 h-16 mx-auto mb-3 flex items-center justify-center rounded-2xl bg-surface border-2 border-cocoa shadow-[0_3px_0_var(--shadow-soft)]">
                         </div>
 
-                        <h2 id="carouselGameTitle" class="text-2xl sm:text-3xl font-bold text-[#433631]">
+                        <h2 id="carouselGameTitle" class="text-2xl sm:text-3xl font-bold text-cocoa-dark">
                             Code Typing
                         </h2>
-                        <p id="carouselGameDesc" class="text-sm font-semibold text-[#85746d] max-w-md mx-auto mt-1.5">
+                        <p id="carouselGameDesc" class="text-sm font-semibold text-cocoa-soft max-w-md mx-auto mt-1.5">
                             Translate terms with hints, typo tolerance, and native pronunciation.
                         </p>
 
                         <!-- Inline Compact Options (No Extra Setup Screen Needed!) -->
-                        <div class="mt-5 pt-4 border-t-2 border-dashed border-[#d8c7bc] grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                        <div class="mt-5 pt-4 border-t-2 border-dashed border-line grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
                             <!-- Word Bank Selector (Always shown) -->
                             <div id="inlinePoolWrapper">
-                                <label for="wordPoolSelect" class="block text-xs font-extrabold uppercase tracking-wider text-[#5c4d47] mb-1">
+                                <label for="wordPoolSelect" class="block text-xs font-extrabold uppercase tracking-wider text-cocoa mb-1">
                                     Word Bank
                                 </label>
                                 <select id="wordPoolSelect" class="cozy-select w-full p-2 text-xs sm:text-sm">
                                     <option value="all">All Glossary Words (219)</option>
+                                    <option value="unit1">Technical English I</option>
+                                    <option value="unit2">Technical English II</option>
+                                    <option value="smart">🧠 Smart Review (words you miss most)</option>
                                     <option value="favorites">Starred Favorites Only ⭐</option>
+                                </select>
+                            </div>
+
+                            <!-- Question Count (all games) -->
+                            <div id="inlineCountWrapper">
+                                <label for="questionCountSelect" class="block text-xs font-extrabold uppercase tracking-wider text-cocoa mb-1">
+                                    Questions
+                                </label>
+                                <select id="questionCountSelect" class="cozy-select w-full p-2 text-xs sm:text-sm">
+                                    <option value="5">5 questions</option>
+                                    <option value="10" selected>10 questions</option>
+                                    <option value="20">20 questions</option>
+                                </select>
+                            </div>
+
+                            <!-- Timer (typing, trivia, dictation, sentence) -->
+                            <div id="inlineTimerWrapper">
+                                <label for="timerSelect" class="block text-xs font-extrabold uppercase tracking-wider text-cocoa mb-1">
+                                    Time Limit
+                                </label>
+                                <select id="timerSelect" class="cozy-select w-full p-2 text-xs sm:text-sm">
+                                    <option value="0" selected>No timer</option>
+                                    <option value="30">30 s per question</option>
+                                    <option value="15">15 s per question (hard)</option>
                                 </select>
                             </div>
 
                             <!-- Direction Selector (Shown for Typing & Trivia) -->
                             <div id="inlineDirectionWrapper">
-                                <label for="gameModeSelect" class="block text-xs font-extrabold uppercase tracking-wider text-[#5c4d47] mb-1">
+                                <label for="gameModeSelect" class="block text-xs font-extrabold uppercase tracking-wider text-cocoa mb-1">
                                     Direction
                                 </label>
                                 <select id="gameModeSelect" class="cozy-select w-full p-2 text-xs sm:text-sm">
@@ -206,7 +265,7 @@
 
                             <!-- Difficulty Selector (Shown for Code Typing) -->
                             <div id="inlineDifficultyWrapper" class="sm:col-span-2">
-                                <label for="difficultySelect" class="block text-xs font-extrabold uppercase tracking-wider text-[#5c4d47] mb-1">
+                                <label for="difficultySelect" class="block text-xs font-extrabold uppercase tracking-wider text-cocoa mb-1">
                                     Word Length Difficulty
                                 </label>
                                 <select id="difficultySelect" class="cozy-select w-full p-2 text-xs sm:text-sm">
@@ -219,7 +278,7 @@
                             </div>
                         </div>
 
-                        <p id="poolCountInfo" class="text-xs font-bold text-[#85746d] mt-3">
+                        <p id="poolCountInfo" class="text-xs font-bold text-cocoa-soft mt-3" aria-live="polite">
                             Ready with all 219 terms.
                         </p>
                     </div>
@@ -231,9 +290,39 @@
 
                 <!-- Direct One-Click Start Button -->
                 <button type="button" id="startGameDirectBtn" class="btn-cozy-primary w-full mt-5 py-3.5 px-6 text-lg sm:text-xl flex items-center justify-center gap-2">
-                    <span>▶</span>
+                    <span aria-hidden="true">▶</span>
                     <span id="startGameBtnLabel">Start Code Typing</span>
                 </button>
+            </section>
+
+            <!-- 3. PROGRESS STATS -->
+            <section class="cozy-card p-5 sm:p-6" aria-labelledby="statsTitle">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 id="statsTitle" class="text-lg sm:text-xl font-bold text-cocoa-dark">📈 Your Progress</h2>
+                    <span class="text-[11px] font-bold text-cocoa-soft">Saved on this device</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div class="cozy-subcard p-3">
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-cocoa-soft">Mastered</p>
+                        <p id="statMastered" class="text-2xl font-display font-bold text-mint-dark">0</p>
+                        <div class="stat-bar mt-1" aria-hidden="true"><div id="statMasteredBar" class="stat-bar-fill"></div></div>
+                    </div>
+                    <div class="cozy-subcard p-3">
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-cocoa-soft">Daily Streak</p>
+                        <p id="statStreak" class="text-2xl font-display font-bold text-cocoa-dark">0 🔥</p>
+                        <p id="statBestStreak" class="text-[11px] font-bold text-cocoa-soft">Best: 0</p>
+                    </div>
+                    <div class="cozy-subcard p-3">
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-cocoa-soft">Answers</p>
+                        <p id="statAnswers" class="text-2xl font-display font-bold text-cocoa-dark">0</p>
+                        <p id="statAccuracy" class="text-[11px] font-bold text-cocoa-soft">Accuracy: –</p>
+                    </div>
+                    <div class="cozy-subcard p-3">
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-cocoa-soft">Best Match</p>
+                        <p id="statBestMatch" class="text-2xl font-display font-bold text-cocoa-dark">–</p>
+                        <p class="text-[11px] font-bold text-cocoa-soft">fastest time</p>
+                    </div>
+                </div>
             </section>
         </main>
 
@@ -242,19 +331,22 @@
         <!-- ===================================================== -->
         <section id="gameSection" class="cozy-card p-5 sm:p-7 hidden">
             <!-- Top Arena Bar -->
-            <div class="flex flex-wrap justify-between items-center gap-3 mb-5 pb-3.5 border-b-2 border-dashed border-[#d8c7bc]">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-5 pb-3.5 border-b-2 border-dashed border-line">
                 <button type="button" id="gameGoHomeBtn" class="btn-cozy-secondary text-xs sm:text-sm py-1.5 px-3.5">
                     &larr; Menu
                 </button>
-                <h2 class="text-lg sm:text-xl font-bold text-[#433631]" id="activeGameTitle">Code Typing</h2>
-                <div id="statusContainer" class="text-xs sm:text-sm font-extrabold text-[#5c4d47] flex items-center gap-2.5">
-                    <span id="progressBadge" class="px-2.5 py-1 rounded-full bg-[#f7efe8] border border-[#5c4d47]">
+                <h2 class="text-lg sm:text-xl font-bold text-cocoa-dark" id="activeGameTitle">Code Typing</h2>
+                <div id="statusContainer" class="text-xs sm:text-sm font-extrabold text-cocoa flex flex-wrap items-center gap-2.5">
+                    <span id="questionTimerBadge" class="hidden font-code px-2.5 py-1 rounded-full bg-cream-tint border border-cocoa" aria-live="off">
+                        ⏱️ <span id="questionTimerValue">30</span>s
+                    </span>
+                    <span id="progressBadge" class="px-2.5 py-1 rounded-full bg-cream-tint border border-cocoa">
                         Q: <span id="currentQuestionNumber">1</span>/<span id="totalQuestionsDisplay">10</span>
                     </span>
-                    <span class="px-2.5 py-1 rounded-full bg-[#cdeee1] border border-[#5c4d47]">
+                    <span class="px-2.5 py-1 rounded-full bg-mint-pastel border border-cocoa">
                         Score: <span id="currentScore">0</span>
                     </span>
-                    <span id="streakBadge" class="hidden px-2.5 py-1 rounded-full bg-[#f9d5e0] border border-[#5c4d47] text-[#433631]">
+                    <span id="streakBadge" class="hidden px-2.5 py-1 rounded-full bg-pink-pastel border border-cocoa text-cocoa-dark">
                         🔥 x2
                     </span>
                 </div>
@@ -263,7 +355,7 @@
             <!-- 1. CODE TYPING VIEW -->
             <div id="viewTyping" class="game-view hidden">
                 <div class="cozy-subcard p-5 sm:p-6 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <p class="text-xl sm:text-2xl font-extrabold text-[#433631] leading-snug" id="typingQuestionText">...</p>
+                    <p class="text-xl sm:text-2xl font-extrabold text-cocoa-dark leading-snug" id="typingQuestionText">...</p>
                     <button type="button" id="typingSpeakBtn" class="btn-audio-pill self-start sm:self-center hidden" title="Listen pronunciation">
                         🔊 Listen
                     </button>
@@ -284,20 +376,20 @@
                     <button type="button" id="typingContextBtn" class="btn-cozy-secondary py-1.5 px-4 w-full sm:w-auto text-xs sm:text-sm">
                         📝 Example sentence
                     </button>
-                    <div id="hintDisplay" class="text-lg sm:text-xl font-code text-[#2f7d65] tracking-widest font-bold min-h-[28px]"></div>
+                    <div id="hintDisplay" class="text-lg sm:text-xl font-code text-mint-dark tracking-widest font-bold min-h-[28px]"></div>
                 </div>
-                <div id="typingContextDisplay" class="hidden mt-3 p-3 cozy-subcard text-sm sm:text-base font-bold text-[#b45309] break-words"></div>
+                <div id="typingContextDisplay" class="hidden mt-3 p-3 cozy-subcard text-sm sm:text-base font-bold text-amber-text break-words"></div>
             </div>
 
             <!-- 2. SYNTAX MATCH VIEW -->
             <div id="viewMatch" class="game-view hidden">
-                <div class="flex flex-wrap justify-between items-center gap-2 mb-4 text-xs sm:text-sm font-bold text-[#5c4d47]">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-4 text-xs sm:text-sm font-bold text-cocoa">
                     <span>Match each <strong>English</strong> term with its <strong>Spanish</strong> meaning!</span>
                     <div class="flex items-center gap-2">
                         <button type="button" id="matchHintBtn" class="btn-cozy-secondary py-1 px-3 text-xs">
                             💡 Hint (<span id="matchHintsRemaining">2</span>/2)
                         </button>
-                        <span class="font-code px-2.5 py-1 rounded-full bg-[#f7efe8] border border-[#5c4d47]">
+                        <span class="font-code px-2.5 py-1 rounded-full bg-cream-tint border border-cocoa">
                             ⏱️ <span id="matchTimer">0.0</span>s &bull; Round <span id="matchRound">1/3</span>
                         </span>
                     </div>
@@ -313,7 +405,7 @@
                 <div class="cozy-subcard p-5 sm:p-6 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <span id="triviaPromptTag" class="spotlight-tag tag-word mb-2">Translate to Spanish</span>
-                        <p class="text-xl sm:text-2xl font-extrabold text-[#433631]" id="triviaQuestionText">...</p>
+                        <p class="text-xl sm:text-2xl font-extrabold text-cocoa-dark" id="triviaQuestionText">...</p>
                     </div>
                     <div class="flex items-center gap-2 self-start sm:self-center">
                         <button type="button" id="triviaHintBtn" class="btn-cozy-secondary py-1 px-3 text-xs" title="Remove 2 wrong options">
@@ -330,7 +422,7 @@
             <!-- 4. AUDIO DICTATION VIEW -->
             <div id="viewDictation" class="game-view hidden">
                 <div class="cozy-subcard p-5 sm:p-6 mb-5 text-center">
-                    <p class="text-sm font-bold text-[#5c4d47] mb-4">
+                    <p class="text-sm font-bold text-cocoa mb-4">
                         Listen carefully and type the exact English term you hear:
                     </p>
                     <div class="flex flex-wrap justify-center gap-3 mb-4">
@@ -352,9 +444,9 @@
                             📝 Example sentence
                         </button>
                     </div>
-                    <div id="dictationContextDisplay" class="hidden mt-2 p-3 cozy-subcard text-sm font-bold text-[#b45309] break-words"></div>
-                    <p id="dictationMeaningText" class="text-sm font-extrabold text-[#b45309] mt-2 hidden"></p>
-                    <div id="dictationLetterDisplay" class="text-lg font-code text-[#2f7d65] tracking-widest font-bold mt-1.5 min-h-[24px]"></div>
+                    <div id="dictationContextDisplay" class="hidden mt-2 p-3 cozy-subcard text-sm font-bold text-amber-text break-words"></div>
+                    <p id="dictationMeaningText" class="text-sm font-extrabold text-amber-text mt-2 hidden"></p>
+                    <div id="dictationLetterDisplay" class="text-lg font-code text-mint-dark tracking-widest font-bold mt-1.5 min-h-[24px]"></div>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3">
@@ -369,18 +461,18 @@
             <!-- 5. PUSHEEN HANGMAN VIEW -->
             <div id="viewHangman" class="game-view hidden">
                 <div class="cozy-subcard p-5 mb-5 text-center">
-                    <div class="flex flex-wrap justify-between items-center gap-2 text-xs sm:text-sm font-bold text-[#85746d] mb-2">
+                    <div class="flex flex-wrap justify-between items-center gap-2 text-xs sm:text-sm font-bold text-cocoa-soft mb-2">
                         <span>Clue (Spanish Meaning):</span>
                         <div class="flex items-center gap-2">
                             <button type="button" id="hangmanHintBtn" class="btn-cozy-secondary py-1 px-3 text-xs">
                                 💡 Hint (<span id="hangmanHintsRemaining">2</span>/2)
                             </button>
-                            <span id="hangmanLivesDisplay" class="font-extrabold text-[#433631]">🐟🐟🐟🐟🐟🐟 (6 lives)</span>
+                            <span id="hangmanLivesDisplay" class="font-extrabold text-cocoa-dark">🐟🐟🐟🐟🐟🐟 (6 lives)</span>
                         </div>
                     </div>
-                    <p id="hangmanClueText" class="text-lg sm:text-xl font-extrabold text-[#433631] mb-4">...</p>
+                    <p id="hangmanClueText" class="text-lg sm:text-xl font-extrabold text-cocoa-dark mb-4">...</p>
 
-                    <div id="hangmanWordSlots" class="font-code text-2xl sm:text-3xl font-bold tracking-widest text-[#2f7d65] my-4 flex flex-wrap justify-center gap-x-3 gap-y-2">
+                    <div id="hangmanWordSlots" class="font-code text-2xl sm:text-3xl font-bold tracking-widest text-mint-dark my-4 flex flex-wrap justify-center gap-x-3 gap-y-2">
                     </div>
 
                     <button type="button" id="hangmanSpeakBtn" class="btn-audio-pill mt-2 hidden">
@@ -391,12 +483,46 @@
                 <div id="hangmanKeyboard" class="grid grid-cols-7 sm:grid-cols-9 gap-1.5 sm:gap-2"></div>
             </div>
 
+            <!-- 6. FILL THE SENTENCE VIEW -->
+            <div id="viewSentence" class="game-view hidden">
+                <div class="cozy-subcard p-5 sm:p-6 mb-5">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                        <span class="spotlight-tag tag-word">Complete the sentence in English</span>
+                        <button type="button" id="sentenceSpeakBtn" class="btn-audio-pill hidden" title="Listen to the full sentence">
+                            🔊 Listen
+                        </button>
+                    </div>
+                    <p id="sentenceQuestionText" class="text-lg sm:text-xl font-extrabold text-cocoa-dark leading-snug break-words">...</p>
+                    <p id="sentenceTranslation" lang="es" class="text-sm font-bold text-cocoa-soft mt-2 break-words"></p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="text" id="sentenceAnswerInput" placeholder="Type the missing English word..." autocomplete="off" aria-label="Missing word"
+                           class="cozy-input flex-grow p-3.5 text-base sm:text-lg">
+                    <button type="button" id="sentenceCheckBtn" class="btn-cozy-primary py-3 px-6 text-base">
+                        Check
+                    </button>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-between items-center mt-4 p-3 cozy-subcard gap-3">
+                    <button type="button" id="sentenceHintBtn" class="btn-cozy-secondary py-1.5 px-4 w-full sm:w-auto text-xs sm:text-sm">
+                        💡 Hint (<span id="sentenceHintsRemaining">3</span>/3)
+                    </button>
+                    <button type="button" id="sentenceMeaningBtn" class="btn-cozy-secondary py-1.5 px-4 w-full sm:w-auto text-xs sm:text-sm">
+                        📖 Meaning
+                    </button>
+                    <div id="sentenceHintDisplay" class="text-lg sm:text-xl font-code text-mint-dark tracking-widest font-bold min-h-[28px]"></div>
+                </div>
+                <p id="sentenceMeaningText" lang="es" class="hidden mt-3 p-3 cozy-subcard text-sm font-bold text-amber-text break-words"></p>
+            </div>
+
             <!-- SHARED FEEDBACK & NEXT BUTTON -->
-            <div id="feedbackMessage" class="mt-5 p-4 rounded-xl text-left font-bold hidden"></div>
+            <div id="feedbackMessage" class="mt-5 p-4 rounded-xl text-left font-bold hidden" role="status" aria-live="polite"></div>
 
             <button type="button" id="nextButton" class="btn-cozy-pink w-full mt-5 py-3 px-6 text-base sm:text-lg hidden">
                 Next &rarr;
             </button>
+            <p id="keyboardTip" class="text-[11px] font-bold text-cocoa-soft text-center mt-3"></p>
         </section>
     </div>
 
@@ -404,32 +530,45 @@
     <!-- FULL GLOSSARY MODAL                                   -->
     <!-- ===================================================== -->
     <div id="glossaryModal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 hidden">
-        <div class="modal-content cozy-card p-5 sm:p-7 w-full md:w-4/5 lg:w-3/4">
-            <div class="glossary-sticky-header flex justify-between items-center gap-3 mb-4 pb-3 border-b-2 border-dashed border-[#d8c7bc]">
+        <div class="modal-content cozy-card p-5 sm:p-7 w-full md:w-4/5 lg:w-3/4" role="dialog" aria-modal="true" aria-labelledby="glossaryTitle">
+            <div class="glossary-sticky-header flex justify-between items-center gap-3 mb-4 pb-3 border-b-2 border-dashed border-line">
                 <div>
-                    <h2 class="text-2xl sm:text-3xl font-bold text-[#433631]">Full Technical Glossary</h2>
-                    <p class="text-xs font-bold text-[#85746d]">Press <kbd class="px-1.5 py-0.5 bg-[#f7efe8] border border-[#5c4d47] rounded text-[11px]">Esc</kbd>, click outside, or use &times; to exit.</p>
+                    <h2 id="glossaryTitle" class="text-2xl sm:text-3xl font-bold text-cocoa-dark">Full Technical Glossary</h2>
+                    <p class="text-xs font-bold text-cocoa-soft">Press <kbd class="px-1.5 py-0.5 bg-cream-tint border border-cocoa rounded text-[11px]">Esc</kbd>, click outside, or use &times; to exit.</p>
                 </div>
-                <button type="button" id="glossaryCloseXBtn" class="w-9 h-9 shrink-0 rounded-full bg-[#f7efe8] border-2 border-[#5c4d47] text-[#433631] font-extrabold text-xl leading-none flex items-center justify-center cursor-pointer hover:bg-[#f9d5e0]" title="Close Glossary (Esc)">&times;</button>
+                <button type="button" id="glossaryCloseXBtn" class="w-9 h-9 shrink-0 rounded-full bg-cream-tint border-2 border-cocoa text-cocoa-dark font-extrabold text-xl leading-none flex items-center justify-center cursor-pointer hover:bg-pink-pastel" title="Close Glossary (Esc)" aria-label="Cerrar glosario">&times;</button>
             </div>
 
             <!-- Search, Filter & Sort -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                <input type="text" id="glossarySearchInput" placeholder="Search English or Spanish..."
+                <input type="search" id="glossarySearchInput" placeholder="Search English or Spanish..." aria-label="Buscar en el glosario"
                        class="cozy-input p-2.5 text-sm">
 
-                <select id="glossaryFilterSelect" class="cozy-select p-2.5 text-sm">
+                <select id="glossaryFilterSelect" class="cozy-select p-2.5 text-sm" aria-label="Filtrar">
                     <option value="all">Show All 219 Terms</option>
+                    <option value="unit1">Technical English I</option>
+                    <option value="unit2">Technical English II</option>
                     <option value="favorites">Starred Favorites Only ⭐</option>
                 </select>
 
-                <select id="sortGlossaryBy" class="cozy-select p-2.5 text-sm">
+                <select id="sortGlossaryBy" class="cozy-select p-2.5 text-sm" aria-label="Ordenar">
                     <option value="english">Sort: English (A–Z)</option>
                     <option value="spanish">Sort: Spanish (A–Z)</option>
                 </select>
             </div>
 
-            <p id="glossaryMatchCount" class="text-xs font-extrabold text-[#85746d] mb-3"></p>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <p id="glossaryMatchCount" class="text-xs font-extrabold text-cocoa-soft" aria-live="polite"></p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="exportProgressBtn" class="btn-cozy-secondary py-1 px-3 text-xs" title="Download favorites and progress as a file">
+                        ⬇️ Export progress
+                    </button>
+                    <label for="importProgressInput" class="btn-cozy-secondary py-1 px-3 text-xs cursor-pointer" title="Load a previously exported file">
+                        ⬆️ Import progress
+                    </label>
+                    <input type="file" id="importProgressInput" accept="application/json,.json" class="sr-only">
+                </div>
+            </div>
 
             <div id="glossaryContent" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
 
@@ -443,21 +582,25 @@
     <!-- GAME OVER & REVIEW MODAL                              -->
     <!-- ===================================================== -->
     <div id="gameOverModal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-        <div class="modal-content cozy-card p-6 sm:p-8 text-center w-full max-w-lg">
-            <h2 class="text-3xl font-bold text-[#433631] mb-1">Challenge Complete!</h2>
-            <p class="text-sm font-bold text-[#85746d] mb-4" id="gameOverSubtitle">Great effort!</p>
+        <div class="modal-content cozy-card p-6 sm:p-8 text-center w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+            <h2 id="gameOverTitle" class="text-3xl font-bold text-cocoa-dark mb-1">Challenge Complete!</h2>
+            <p class="text-sm font-bold text-cocoa-soft mb-4" id="gameOverSubtitle">Great effort!</p>
 
             <div class="cozy-subcard p-4 mb-5">
-                <p class="text-xs font-extrabold uppercase tracking-wider text-[#85746d]">Final Score</p>
-                <p id="finalScore" class="text-4xl sm:text-5xl font-display font-bold text-[#2f7d65] my-1">0 / 10</p>
-                <p id="finalAccuracy" class="text-xs font-bold text-[#5c4d47]">Accuracy: 100%</p>
+                <p class="text-xs font-extrabold uppercase tracking-wider text-cocoa-soft">Final Score</p>
+                <p id="finalScore" class="text-4xl sm:text-5xl font-display font-bold text-mint-dark my-1">0 / 10</p>
+                <p id="finalAccuracy" class="text-xs font-bold text-cocoa">Accuracy: 100%</p>
             </div>
 
             <!-- Missed Words Review -->
             <div id="missedWordsSection" class="text-left mb-6 hidden">
-                <h3 class="text-xs font-extrabold text-[#b45309] uppercase tracking-wider mb-2">Words to Review:</h3>
+                <h3 class="text-xs font-extrabold text-amber-text uppercase tracking-wider mb-2">Words to Review:</h3>
                 <div id="missedWordsList" class="max-h-44 overflow-y-auto space-y-2 pr-1"></div>
             </div>
+
+            <button type="button" id="reviewMissedBtn" class="btn-cozy-pink w-full mb-3 py-3 px-5 text-base hidden">
+                🔁 Practice the missed words
+            </button>
 
             <div class="flex flex-col sm:flex-row gap-3">
                 <button type="button" id="gameOverRestartBtn" class="btn-cozy-primary flex-1 py-3 px-5 text-base">
@@ -571,7 +714,7 @@
         </button>
     </div>
 
-    <script src="glossary.js"></script>
-    <script src="app.js"></script>
+    <!-- Toast for short messages (pronunciation result, import/export) -->
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 </body>
 </html>
